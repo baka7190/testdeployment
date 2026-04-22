@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WTS ERP | Dispatch</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 flex">
+
+    <aside class="w-64 h-screen bg-slate-900 text-slate-300 flex flex-col p-4 sticky top-0">
+        <div class="font-black text-white mb-10 px-2">WTS DISPATCH</div>
+        <nav class="flex-1 space-y-2">
+            <a href="/dashboard" class="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 transition text-sm">
+                <i class="fa-solid fa-gauge w-5"></i> Dashboard
+            </a>
+            <a href="/dispatch" class="flex items-center gap-3 p-3 rounded-lg bg-blue-600 text-white transition text-sm font-bold">
+                <i class="fa-solid fa-truck-ramp-box w-5"></i> Dispatch Items
+            </a>
+        </nav>
+    </aside>
+
+    <main class="flex-1 p-8">
+        <div class="max-w-2xl mx-auto">
+            <div class="bg-white rounded-[40px] p-10 shadow-xl border border-slate-100">
+                <h3 class="font-black text-2xl mb-2 text-slate-800 uppercase">Dispatch Center</h3>
+                <p class="text-xs text-slate-400 mb-8 italic">Issue stock to departments using barcode or manual search.</p>
+
+                <form action="/update_stock" method="POST" class="space-y-6">
+                    <input type="hidden" name="type" value="out"> <div class="relative">
+                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block mb-2 text-red-500">Find Product to Give Out</label>
+                        <div class="flex gap-2">
+                            <div class="relative flex-1">
+                                <input type="text" id="itemSearch" placeholder="Type first letter..." autocomplete="off"
+                                       class="w-full p-5 bg-slate-50 border-2 border-slate-50 rounded-3xl outline-none focus:border-red-400 transition text-sm font-bold">
+
+                                <div id="suggestionBox" class="hidden absolute w-full mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto">
+                                    </div>
+                            </div>
+                            <button type="button" onclick="toggleScanner()" class="p-5 bg-slate-900 text-white rounded-3xl">
+                                <i class="fa-solid fa-barcode"></i>
+                            </button>
+                        </div>
+                        <input type="hidden" name="item_id" id="selectedItemId" required>
+                    </div>
+
+                    <div id="scannerSection" class="hidden rounded-3xl overflow-hidden border-4 border-slate-900 mb-4 bg-black">
+                        <div id="reader"></div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block mb-2">Quantity</label>
+                            <input type="number" name="qty" placeholder="0" min="1" required class="w-full p-5 bg-slate-50 rounded-3xl text-sm font-bold border-2 border-slate-50 outline-none focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block mb-2">Destination Dept</label>
+                            <select name="dept" class="w-full p-5 bg-slate-50 rounded-3xl text-sm font-bold outline-none border-2 border-slate-50">
+                                <option>Administration</option>
+                                <option>Technical</option>
+                                <option>Logistics</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full bg-red-600 text-white py-6 rounded-3xl font-black text-xs shadow-2xl shadow-red-100 hover:bg-red-700 transition">
+                        FINALIZE DISPATCH
+                    </button>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const searchInput = document.getElementById('itemSearch');
+        const suggestionBox = document.getElementById('suggestionBox');
+        const idInput = document.getElementById('selectedItemId');
+        let products = [];
+
+        // Fetch products from API on load
+        fetch('/api/products').then(res => res.json()).then(data => products = data);
+
+        // Live Search Logic
+        searchInput.addEventListener('input', function() {
+            const val = this.value.toUpperCase();
+            suggestionBox.innerHTML = '';
+
+            if (val.length < 1) {
+                suggestionBox.classList.add('hidden');
+                return;
+            }
+
+            const filtered = products.filter(p => p.name.toUpperCase().includes(val) || p.barcode.includes(val));
+
+            if (filtered.length > 0) {
+                suggestionBox.classList.remove('hidden');
+                filtered.forEach(p => {
+                    const div = document.createElement('div');
+                    div.className = 'p-4 hover:bg-slate-50 cursor-pointer text-sm font-bold border-b border-slate-50 last:border-0';
+                    div.innerHTML = `<span class="text-slate-800">${p.name}</span> <span class="text-[9px] text-slate-400 ml-2">(${p.barcode})</span>`;
+                    div.onclick = () => {
+                        searchInput.value = p.name;
+                        idInput.value = p.id;
+                        suggestionBox.classList.add('hidden');
+                    };
+                    suggestionBox.appendChild(div);
+                });
+            } else {
+                suggestionBox.classList.add('hidden');
+            }
+        });
+
+        // Barcode Scanner Logic
+        let scanner = new Html5Qrcode("reader");
+        function toggleScanner() {
+            const sect = document.getElementById('scannerSection');
+            if (sect.classList.contains('hidden')) {
+                sect.classList.remove('hidden');
+                scanner.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, (txt) => {
+                    const matched = products.find(p => p.barcode === txt);
+                    if (matched) {
+                        searchInput.value = matched.name;
+                        idInput.value = matched.id;
+                        scanner.stop().then(() => sect.classList.add('hidden'));
+                        alert("Item Identified: " + matched.name);
+                    }
+                });
+            } else {
+                scanner.stop().then(() => sect.classList.add('hidden'));
+            }
+        }
+    </script>
+</body>
+</html>
