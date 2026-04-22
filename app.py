@@ -7,7 +7,6 @@ app = Flask(__name__)
 app.secret_key = 'wts_solutions_2026_pro_deploy'
 
 # --- RENDER PERSISTENT STORAGE LOGIC ---
-# Render's persistent disk is usually mounted at /data
 if os.path.exists('/data'):
     db_path = '/data/wts_erp.db'
 else:
@@ -26,8 +25,8 @@ class Product(db.Model):
     name = db.Column(db.String(100), nullable=False)
     stock = db.Column(db.Integer, default=0)
     min_limit = db.Column(db.Integer, default=5)
-    acquisition_type = db.Column(db.String(20))  # Bought/Donated
-    source_name = db.Column(db.String(100))
+    acquisition_type = db.Column(db.String(20))  # Bought or Donated
+    source_name = db.Column(db.String(100))  # Supplier or Donor
     cost_price = db.Column(db.Float, default=0.0)
     date_added = db.Column(db.DateTime, default=datetime.now)
 
@@ -36,7 +35,7 @@ class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     item_name = db.Column(db.String(100))
     dept = db.Column(db.String(100))
-    trans_type = db.Column(db.String(20))  # IN/OUT
+    trans_type = db.Column(db.String(20))  # IN or OUT
     qty = db.Column(db.Integer)
     timestamp = db.Column(db.DateTime, default=datetime.now)
 
@@ -88,7 +87,7 @@ def get_products():
 def register_product():
     barcode = request.form.get('barcode')
     if Product.query.filter_by(barcode=barcode).first():
-        flash(f"Error: Barcode {barcode} exists.", "error")
+        flash(f"Error: Barcode {barcode} already exists.", "error")
         return redirect(url_for('dashboard'))
 
     new_p = Product(
@@ -102,7 +101,7 @@ def register_product():
     )
     db.session.add(new_p)
     db.session.commit()
-    flash("Product Registered!", "success")
+    flash("Product Registered Successfully!", "success")
     return redirect(url_for('dashboard'))
 
 
@@ -124,7 +123,7 @@ def update_stock():
     log = Transaction(item_name=product.name, dept=dept, trans_type=trans_type.upper(), qty=qty)
     db.session.add(log)
     db.session.commit()
-    flash("Transaction Complete!", "success")
+    flash("Stock Update Complete!", "success")
     return redirect(url_for('dashboard'))
 
 
