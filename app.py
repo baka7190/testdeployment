@@ -176,7 +176,12 @@ def update_stock():
     flash(f"Updated: {product.name}", "success")
     return redirect(url_for('dashboard'))
 
-
+@app.route('/history')
+def history_page():
+    if 'user' not in session: return redirect(url_for('login'))
+    # Fetch all transactions, newest first
+    all_logs = Transaction.query.order_by(Transaction.timestamp.desc()).all()
+    return render_template('history.html', transactions=all_logs)
 @app.route('/logout')
 def logout():
     session.clear()
